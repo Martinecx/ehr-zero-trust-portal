@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MedVault Zero-Trust EHR Portal — Prototype</title>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#141b33; --panel2:#1b2444; --line:#263156;
+    --txt:#e8ecf8; --mut:#8f9ac0; --acc:#4f8cff; --ok:#2fd08c; --warn:#ffb020; --bad:#ff5c6c;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:"Segoe UI",Inter,system-ui,sans-serif}
+  body{background:var(--bg);color:var(--txt);min-height:100vh}
+  .hidden{display:none !important}
+  /* ---------- LOGIN ---------- */
+  #loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:32px;width:100%;max-width:420px}
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .logo{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#4f8cff,#7a5cff);display:flex;align-items:center;justify-content:center;font-size:22px}
+  .brand h1{font-size:20px;letter-spacing:.3px}
+  .sub{color:var(--mut);font-size:13px;margin-bottom:24px}
+  label{font-size:12px;color:var(--mut);display:block;margin:14px 0 6px;text-transform:uppercase;letter-spacing:.8px}
+  input,select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px 14px;color:var(--txt);font-size:14px}
+  input:focus,select:focus{outline:none;border-color:var(--acc)}
+  .btn{width:100%;margin-top:20px;background:linear-gradient(135deg,#4f8cff,#7a5cff);border:none;border-radius:10px;padding:12px;color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+  .btn:hover{filter:brightness(1.1)}
+  .btn.ghost{background:var(--panel2);border:1px solid var(--line)}
+  .demo{margin-top:18px;font-size:12px;color:var(--mut);background:var(--panel2);border:1px dashed var(--line);border-radius:10px;padding:12px;line-height:1.7}
+  .demo b{color:var(--txt)}
+  .mfa-row{display:flex;gap:8px}
+  .mfa-row input{letter-spacing:6px;text-align:center;font-size:18px}
+  #mfaBox{margin-top:6px}
+  .err{color:var(--bad);font-size:13px;margin-top:12px}
+  /* ---------- APP SHELL ---------- */
+  header{display:flex;align-items:center;gap:16px;padding:12px 20px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  header .logo{width:34px;height:34px;font-size:17px;border-radius:9px}
+  header h1{font-size:16px}
+  .trustpill{margin-left:auto;display:flex;align-items:center;gap:14px;font-size:12px;color:var(--mut)}
+  .pill{padding:5px 12px;border-radius:999px;font-weight:600}
+  .pill.ok{background:rgba(47,208,140,.15);color:var(--ok)}
+  .pill.warn{background:rgba(255,176,32,.15);color:var(--warn)}
+  .pill.bad{background:rgba(255,92,108,.15);color:var(--bad)}
+  .layout{display:flex;min-height:calc(100vh - 59px)}
+  nav{width:220px;background:var(--panel);border-right:1px solid var(--line);padding:16px 10px}
+  nav .navi{padding:11px 14px;border-radius:10px;font-size:14px;color:var(--mut);cursor:pointer;margin-bottom:4px;display:flex;gap:10px;align-items:center}
+  nav .navi:hover{background:var(--panel2);color:var(--txt)}
+  nav .navi.active{background:linear-gradient(135deg,rgba(79,140,255,.2),rgba(122,92,255,.2));color:var(--txt);border:1px solid var(--line)}
+  main{flex:1;padding:24px;overflow:auto}
+  .grid{display:grid;gap:16px}
+  .g4{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .stat .k{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.8px}
+  .stat .v{font-size:26px;font-weight:700;margin-top:6px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .panel h2{font-size:15px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;color:var(--mut);font-weight:600;padding:9px 10px;border-bottom:1px solid var(--line);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+  td{padding:10px;border-bottom:1px solid rgba(38,49,86,.6)}
+  tr:hover td{background:rgba(79,140,255,.05)}
+  .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600}
+  .tag.doc{background:rgba(79,140,255,.15);color:var(--acc)}
+  .tag.nur{background:rgba(47,208,140,.15);color:var(--ok)}
+  .tag.adm{background:rgba(255,176,32,.15);color:var(--warn)}
+  .tag.pat{background:rgba(186,141,255,.18);color:#c9a6ff}
+  .tag.aud{background:rgba(255,255,255,.1);color:#cfd6ee}
+  .lnk{color:var(--acc);cursor:pointer;font-weight:600}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .check{display:flex;align-items:center;gap:8px;font-size:13px;margin:8px 0;color:var(--txt)}
+  .check input{width:16px;height:16px;accent-color:var(--acc)}
+  .btn.sm{width:auto;padding:8px 14px;font-size:13px;margin:0}
+  .bar{height:8px;border-radius:99px;background:var(--panel2);overflow:hidden;margin-top:8px}
+  .bar i{display:block;height:100%;border-radius:99px}
+  .log{font-family:Consolas,monospace;font-size:12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;max-height:340px;overflow:auto;line-height:1.8}
+  .log .t{color:var(--mut)}
+  .log .a{color:var(--ok)} .log .d{color:var(--bad)} .log .s{color:var(--warn)}
+  .record{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px}
+  .record h3{font-size:14px;margin-bottom:6px}
+  .record p{font-size:13px;color:var(--mut);line-height:1.6}
+  .modal-ov{position:fixed;inset:0;background:rgba(5,8,18,.7);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px;width:100%;max-width:440px}
+  .modal h2{font-size:17px;margin-bottom:8px}
+  .modal p{font-size:13px;color:var(--mut);line-height:1.6;margin-bottom:10px}
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--panel2);border:1px solid var(--line);border-left:4px solid var(--acc);padding:14px 18px;border-radius:12px;font-size:13px;z-index:60;max-width:340px;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+  .note{font-size:12px;color:var(--mut);line-height:1.6;margin-top:10px}
+  .ztl{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+  .zt{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--mut)}
+  .zt b{display:block;color:var(--txt);font-size:13px;margin-bottom:2px}
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="loginScreen">
+  <div class="card">
+    <div class="brand"><div class="logo">🛡️</div><h1>MedVault EHR</h1></div>
+    <div class="sub">Zero-Trust · Role-Based Access · Prototype v0.1</div>
+    <label>Corporate Identity (SSO)</label>
+    <select id="selUser">
+      <option value="doctor">Dr. Amina Rao — Physician (doctor@medvault.demo)</option>
+      <option value="nurse">Sam Okafor — Nurse (nurse@medvault.demo)</option>
+      <option value="patient">Elena Petrova — Patient (patient@medvault.demo)</option>
+      <option value="admin">Grace Lin — System Admin (admin@medvault.demo)</option>
+      <option value="auditor">Omar Haddad — Compliance Auditor (auditor@medvault.demo)</option>
+    </select>
+    <label>Password</label>
+    <input type="password" id="pwd" placeholder="••••••••" value="demo-password">
+    <div id="mfaBox" class="hidden">
+      <label>One-Time Passcode (TOTP)</label>
+      <div class="mfa-row"><input id="mfa" maxlength="6" placeholder="●●●●●●"></div>
+      <div class="note">Demo authenticator code: <b style="color:var(--txt)">314159</b>. Code rotates every session.</div>
+    </div>
+    <button class="btn" id="btnLogin" onclick="doLogin()">Continue</button>
+    <div class="err hidden" id="loginErr"></div>
+    <div class="demo">
+      <b>Zero-trust login flow (simulated):</b><br>
+      1️⃣ Identity verified via SSO → 2️⃣ MFA challenge issued → 3️⃣ Device posture evaluated →
+      4️⃣ Short-lived session (8 min) with continuous re-verification.
+    </div>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app" class="hidden">
+  <header>
+    <div class="logo">🛡️</div>
+    <h1>MedVault EHR <span style="color:var(--mut);font-weight:400;font-size:12px">/ zero-trust session</span></h1>
+    <div class="trustpill">
+      <span id="who" style="color:var(--txt);font-weight:600"></span>
+      <span>⏱ <b id="clock" style="color:var(--txt)">08:00</b></span>
+      <span>Trust score</span><span class="pill ok" id="trustPill">—</span>
+      <button class="btn ghost sm" onclick="openStepUp()">🔑 Step-up auth</button>
+      <button class="btn ghost sm" onclick="logout()">Sign out</button>
+    </div>
+  </header>
+  <div class="layout">
+    <nav id="sideNav"></nav>
+    <main id="main"></main>
+  </div>
+</div>
+
+<!-- ================= MODALS ================= -->
+<div id="stepUpModal" class="modal-ov hidden">
+  <div class="modal">
+    <h2>🔐 Step-up authentication required</h2>
+    <p>This resource is classified <b style="color:var(--warn)">SENSITIVE</b> (behavioral health / HIV / break-glass). Zero-trust policy <code>pii-tier2</code> demands a fresh MFA assertion within the last 2 minutes.</p>
+    <label>Re-enter TOTP</label>
+    <div class="mfa-row"><input id="stepMfa" maxlength="6" placeholder="●●●●●●"></div>
+    <div class="note">Demo code: <b style="color:var(--txt)" id="mfaHint">314159</b></div>
+    <div class="row" style="margin-top:18px">
+      <button class="btn sm" onclick="confirmStepUp()">Verify &amp; proceed</button>
+      <button class="btn ghost sm" onclick="hide('stepUpModal')">Cancel</button>
+    </div>
+    <div class="err hidden" id="stepErr"></div>
+  </div>
+</div>
+
+<div id="deniedModal" class="modal-ov hidden">
+  <div class="modal">
+    <h2>⛔ Access denied by Policy Engine</h2>
+    <p id="denyReason"></p>
+    <button class="btn sm" onclick="hide('deniedModal')">Understood</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   MedVault — Zero-Trust RBAC EHR prototype (client simulation)
+   In production: FastAPI backend (see /backend), OPA-style PDP,
+   SPIFFE device identity, SIEM log streaming.
+   ============================================================ */
+
+const DEMO_MFA = "314159";
+
+const ROLE_DEFS = {
+  doctor:  { label:"Physician", tag:"doc", nav:["Dashboard","Patients","Encounters","Prescriptions","Device Posture","Audit Log"], trustBase:85 },
+  nurse:   { label:"Nurse",     tag:"nur", nav:["Dashboard","Vitals & Meds","My Tasks","Device Posture"], trustBase:80 },
+  patient: { label:"Patient",   tag:"pat", nav:["Dashboard","My Health Record","Consents & Sharing","Appointments"], trustBase:70 },
+  admin:   { label:"System Admin", tag:"adm", nav:["Dashboard","Users & Roles","Policies","Integrations","Device Posture"], trustBase:75 },
+  auditor: { label:"Compliance Auditor", tag:"aud", nav:["Dashboard","Immutable Audit Log","Access Reviews","Reports"], trustBase:90 },
+};
+
+const PATIENTS = [
+  {id:"P-1042", name:"Elena Petrova", dob:"1988-03-12", mrn:"MV-88-1042", diag:"Type 2 Diabetes", pcp:"Dr. Amina Rao", sens:false},
+  {id:"P-1077", name:"Marcus Webb",   dob:"1975-11-02", mrn:"MV-75-1077", diag:"Hypertension",   pcp:"Dr. Amina Rao", sens:false},
+  {id:"P-1091", name:"Priya Nair",    dob:"1994-06-25", mrn:"MV-94-1091", diag:"Asthma",          pcp:"Dr. Amina Rao", sens:false},
+  {id:"P-1110", name:"Jonah Reyes",   dob:"1981-01-30", mrn:"MV-81-1110", diag:"Major Depressive Disorder (42 CFR Part 2)", pcp:"Dr. Amina Rao", sens:true},
+  {id:"P-1133", name:"Wendy Cho",     dob:"1990-09-14", mrn:"MV-90-1133", diag:"HIV (42 CFR Part 2)", pcp:"Dr. Amina Rao", sens:true},
+];
+
+const ENCOUNTERS = [
+  {id:"E-9001", patient:"Elena Petrova", date:"2026-10-02", type:"Follow-up", note:"HbA1c 7.1% — continue metformin 850mg BID. Reviewed CGM trends.", author:"Dr. Amina Rao"},
+  {id:"E-9015", patient:"Marcus Webb",   date:"2026-10-05", type:"Annual exam", note:"BP 138/88. Started amlodipine 5mg daily. Recheck in 6 weeks.", author:"Dr. Amina Rao"},
+  {id:"E-9022", patient:"Jonah Reyes",   date:"2026-10-08", type:"Psychiatric eval", note:"[SENSITIVE — TIER 2] PHQ-9 = 14. Adjusted SSRI dosage. Safety plan reviewed.", author:"Dr. Amina Rao"},
+];
+
+const USERS = [
+  {name:"Dr. Amina Rao", role:"doctor", dept:"Internal Medicine", mfa:"TOTP", last:"2026-10-12 14:02"},
+  {name:"Sam Okafor", role:"nurse", dept:"Internal Medicine", mfa:"TOTP", last:"2026-10-12 13:47"},
+  {name:"Elena Petrova", role:"patient", dept:"—", mfa:"SMS+TOTP", last:"2026-10-11 21:10"},
+  {name:"Grace Lin", role:"admin", dept:"IT", mfa:"Hardware key", last:"2026-10-12 09:15"},
+  {name:"Omar Haddad", role:"auditor", dept:"Compliance", mfa:"Hardware key", last:"2026-10-10 16:40"},
+];
+
+const POLICIES = [
+  {id:"zt-base",      desc:"Deny-all default; every request evaluated by PDP", on:true},
+  {id:"rbac-core",    desc:"Role → permission set mapping (least privilege)", on:true},
+  {id:"mfa-session",  desc:"MFA at login + step-up for SENSITIVE records", on:true},
+  {id:"pii-tier2",    desc:"42 CFR Part 2 / behavioral health: fresh MFA <2 min", on:true},
+  {id:"device-posture",desc:"Trust score ≥70 required for any PHI read", on:true},
+  {id:"break-glass",  desc:"Emergency access: dual-control + auto-incident + 72h review", on:true},
+  {id:"session-ttl",  desc:"Access token TTL 8 min, refresh 30 min, idle lock 5 min", on:true},
+  {id:"jit-admin",    desc:"Admin privileges are just-in-time, time-boxed (15 min)", on:false},
+];
+
+const state = {
+  user:null, role:null, stage:1, mfaCode:DEMO_MFA,
+  trust:0, stepUpUntil:0, timer:null, sessionLeft:480, idle:0,
+  nav:"Dashboard", consents:[{to:"Dr. Amina Rao", scope:"Full record", till:"2027-10-12", active:true}],
+  audit:[], hashChain:"genesis",
+};
+
+/* ---------- helpers ---------- */
+const $ = id => document.getElementById(id);
+function show(id){ $(id).classList.remove("hidden"); }
+function hide(id){ $(id).classList.add("hidden"); }
+function toast(msg){ const t=document.createElement("div"); t.className="toast"; t.innerHTML=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),4000); }
+function hash(s){ let h=0; for(let i=0;i<s.length;i++){ h=((h<<5)-h+s.charCodeAt(i))|0; } return "0x"+(h>>>0).toString(16).padStart(8,"0"); }
+function audit(actor, action, resource, decision, policy){
+  const entry = { ts:new Date().toISOString(), actor, action, resource, decision, policy, prev:state.hashChain };
+  state.hashChain = hash(JSON.stringify(entry));
+  entry.chain = state.hashChain;
+  state.audit.unshift(entry);
+  renderAuditIfVisible();
+}
+
+/* ---------- login flow ---------- */
+$("selUser").addEventListener("change", ()=>{ $("mfaBox").classList.add("hidden"); $("loginErr").classList.add("hidden"); state.stage=1; $("btnLogin").textContent="Continue"; });
+function doLogin(){
+  const err=$("loginErr"); err.classList.add("hidden");
+  if(state.stage===1){
+    state.user = $("selUser").value;
+    $("mfaBox").classList.remove("hidden"); state.stage=2;
+    $("btnLogin").textContent="Verify & Sign In";
+    audit($("selUser").selectedOptions[0].text.split(" — ")[0], "IDENTITY_VERIFY", "idp/sso", "ALLOW", "sso-oidc");
+    return;
+  }
+  if(state.stage===2){
+    if($("mfa").value.trim()!==state.mfaCode){
+      err.textContent="Invalid TOTP. Policy mfa-session: max 3 attempts, then account lockout."; err.classList.remove("hidden");
+      audit($("selUser").selectedOptions[0].text, "MFA_CHALLENGE", "totp", "DENY", "mfa-session"); return;
+    }
+    state.stage=3; $("mfaBox").classList.add("hidden");
+    enterApp();
+  }
+}
+
+function computeTrust(){
+  const checks = ["os","enc","av","geo"];
+  let score = ROLE_DEFS[state.user].trustBase;
+  checks.forEach(c=>{ if(!$(c)?.checked) score -= 12; });
+  score = Math.max(0, score);
+  state.trust = score;
+  const pill=$("trustPill");
+  pill.textContent = score;
+  pill.className = "pill " + (score>=70?"ok":score>=50?"warn":"bad");
+  return score;
+}
+
+function enterApp(){
+  state.role = state.user;
+  state.trust = computeTrust();
+  audit(roleLabel(), "LOGIN", "portal", "ALLOW", "mfa-session+device-posture");
+  hide("loginScreen"); show("app");
+  $("who").innerHTML = roleLabel()+' <span class="tag '+ROLE_DEFS[state.role].tag+'">'+ROLE_DEFS[state.role].label+'</span>';
+  buildNav();
+  state.sessionLeft=480;
+  state.timer=setInterval(tick,1000);
+  if(state.trust<70){
+    toast("⚠️ Device trust score <b>"+state.trust+"</b> &lt; 70. PHI access blocked until posture is fixed (Policy: device-posture).");
+  } else {
+    toast("✅ Session established. Token TTL 8 min · continuous verification active.");
+  }
+  render("Dashboard");
+}
+
+function tick(){
+  state.sessionLeft--;
+  const m=String(Math.floor(state.sessionLeft/60)).padStart(2,"0"), s=String(state.sessionLeft%60).padStart(2,"0");
+  $("clock").textContent=m+":"+s;
+  state.idle++;
+  if(state.sessionLeft<=0){ toast("🔒 Session token expired (TTL 8 min). Re-authenticating…"); setTimeout(logout,1500); }
+  if(state.idle===300){ toast("🔒 Idle 5 min — screen locked. Click Step-up auth to resume."); }
+}
+
+function roleLabel(){ return $("selUser").selectedOptions[0].text.split(" — ")[0]; }
+
+function logout(){
+  audit(roleLabel(), "LOGOUT", "portal", "ALLOW", "session-ttl");
+  clearInterval(state.timer);
+  show("loginScreen"); hide("app");
+  state.stage=1; $("btnLogin").textContent="Continue"; $("mfa").value=""; $("mfaBox").classList.add("hidden");
+}
+
+/* ---------- navigation & gating ---------- */
+function buildNav(){
+  const nav=$("sideNav"); nav.innerHTML="";
+  ROLE_DEFS[state.role].nav.forEach(n=>{
+    const d=document.createElement("div"); d.className="navi"+(n===state.nav?" active":"");
+    d.textContent=n; d.onclick=()=>{ state.idle=0; state.nav=n; buildNav(); render(n); };
+    nav.appendChild(d);
+  });
+}
+
+function gatePHI(){
+  if(state.trust<70){ $("denyReason").innerHTML="Trust score <b>"+state.trust+"</b> below threshold 70. Policy <code>device-posture</code> denies all PHI reads from this device. Remediate posture (right panel) and retry."; show("deniedModal"); audit(roleLabel(),"READ_PHI","patient-chart","DENY","device-posture"); return false; }
+  return true;
+}
+function gateSensitive(){
+  if(!gatePHI()) return false;
+  if(Date.now()>state.stepUpUntil){
+    state.pendingSensitive=true; $("mfaHint").textContent=state.mfaCode; show("stepUpModal");
+    audit(roleLabel(),"READ_SENSITIVE","tier-2-record","STEP_UP","pii-tier2"); return false;
+  }
+  return true;
+}
+function openStepUp(){ $("mfaHint").textContent=state.mfaCode; show("stepUpModal"); }
+function confirmStepUp(){
+  const e=$("stepErr"); e.classList.add("hidden");
+  if($("stepMfa").value.trim()!==state.mfaCode){ e.textContent="Invalid code."; e.classList.remove("hidden"); return; }
+  state.stepUpUntil=Date.now()+120000; hide("stepUpModal"); $("stepMfa").value="";
+  audit(roleLabel(),"STEP_UP_AUTH","totp","ALLOW","pii-tier2");
+  toast("🔓 Elevated assertion granted for 2 minutes (Policy pii-tier2).");
+  if(state.pendingSensitive){ state.pendingSensitive=false; render(state.nav); }
+}
+function breakGlass(){
+  if(!gatePHI()) return;
+  audit(roleLabel(),"BREAK_GLASS","tier-2-record","ALLOW+DUAL_CONTROL","break-glass");
+  $("denyReason").innerHTML="🚨 <b>Break-glass event opened.</b> A second clinician must co-sign within 15 min; Compliance is auto-notified; full access review within 72 h (Policy break-glass)."; show("deniedModal");
+}
+
+/* ---------- views ---------- */
+function render(nav){
+  state.nav=nav; buildNav();
+  const m=$("main");
+  const views={ "Dashboard":vDashboard,"Patients":vPatients,"Encounters":vEncounters,"Prescriptions":vRx,
+    "Vitals & Meds":vVitals,"My Tasks":vTasks,"Device Posture":vPosture,
+    "Audit Log":vAudit,"Immutable Audit Log":vAudit,"Access Reviews":vReviews,"Reports":vReports,
+    "My Health Record":vMyRecord,"Consents & Sharing":vConsents,"Appointments":vAppts,
+    "Users & Roles":vUsers,"Policies":vPolicies,"Integrations":vInteg };
+  m.innerHTML = (views[nav]||vDashboard)();
+}
+
+function vDashboard(){
+  const r=state.role;
+  const zt=[["Verify explicitly","SSO + MFA + device posture, every session"],["Least privilege","RBAC roles; no standing PHI access"],
+            ["Assume breach","Micro-segmentation, token TTL 8 min, full audit"],["Continuous eval","Trust score re-checked on every request"]];
+  let body="";
+  if(r==="doctor") body=stats([["Assigned patients","5"],["Pending results","3"],["Rx renewals","7"],["Step-ups today","2"]]);
+  if(r==="nurse") body=stats([["Vitals due","6"],["Med passes","4"],["Tasks open","9"],["Alerts","1"]]);
+  if(r==="patient") body=stats([["Open results","2"],["Active consents",state.consents.filter(c=>c.active).length],["Next appointment","Oct 20, 09:30"],["Messages","3"]]);
+  if(r==="admin") body=stats([["Active users","214"],["Policies enforced","7 / 8"],["JIT grants","2"],["Anomalies","0"]]);
+  if(r==="auditor") body=stats([["Events (24h)","1,842"],["Hash-chain valid","✓ verified"],["Violations","0"],["Pending reviews","3"]]);
+  return '<div class="ztl">'+zt.map(z=>'<div class="zt"><b>'+z[0]+'</b>'+z[1]+'</div>').join("")+'</div>'
+    + body
+    + '<div class="grid g2" style="margin-top:16px"><div class="panel"><h2>🔐 Live policy evaluation (PDP)</h2>'
+    + '<div class="log" id="pdpLog">'+pdpLines()+'</div></div>'
+    + '<div class="panel"><h2>📋 Session posture</h2>'+postureHTML()+'</div></div>';
+}
+function pdpLines(){
+  return '<span class="t">'+new Date().toISOString()+'</span> <span class="a">ALLOW</span> session.renew — ttl=480s, trust='+state.trust+'<br>'
+   + '<span class="t">'+new Date().toISOString()+'</span> <span class="a">ALLOW</span> rbac.check — role='+state.role+' → resource=portal.nav<br>'
+   + '<span class="t">'+new Date().toISOString()+'</span> <span class="s">STEP_UP</span> pii-tier2 — sensitive records need fresh MFA<br>'
+   + '<span class="t">'+new Date().toISOString()+'</span> <span class="a">ALLOW</span> audit.emit — SIEM stream acked';
+}
+function stats(items){ return '<div class="grid g4">'+items.map(i=>'<div class="stat"><div class="k">'+i[0]+'</div><div class="v">'+i[1]+'</div></div>').join("")+'</div>'; }
+function postureHTML(){
+  return [['os','OS patched (≤14 days)'],['enc','Disk encrypted (BitLocker/FileVault)'],['av','EDR agent healthy'],['geo','Geolocation within policy region']]
+   .map(c=>'<label class="check"><input type="checkbox" id="'+c[0]+'" checked onchange="computeTrust();render(state.nav)"> '+c[1]+'</label>').join("")
+   + '<div class="note">Trust score recomputed on every change. Score &lt; 70 → all PHI reads denied (policy <code>device-posture</code>).</div>';
+}
+
+function vPatients(){
+  return '<div class="panel"><h2>👥 Patient registry <span class="tag doc">role: physician</span></h2><table><tr><th>MRN</th><th>Name</th><th>DOB</th><th>Diagnosis</th><th></th></tr>'
+  + PATIENTS.map(p=>'<tr><td>'+p.mrn+'</td><td>'+p.name+'</td><td>'+p.dob+'</td><td>'+p.diag+(p.sens?' <span class="tag adm">SENSITIVE · TIER 2</span>':'')+'</td><td><span class="lnk" onclick="openChart(\''+p.id+'\')">Open chart →</span></td></tr>').join("")
+  + '</table><div class="note">Nurses see vitals/meds only · Patients see their own record · Auditors see metadata only. Enforced server-side in production.</div></div>';
+}
+function openChart(pid){
+  if(!gatePHI()) return;
+  const p=PATIENTS.find(x=>x.id===pid);
+  audit(roleLabel(),"READ_PHI","chart:"+p.mrn,"ALLOW","rbac-core");
+  if(p.sens && !gateSensitive()) return;
+  $("main").innerHTML='<div class="panel"><h2>📋 Chart — '+p.name+' <span class="tag pat">'+p.mrn+'</span></h2>'
+   +'<div class="record"><h3>Problem list</h3><p>'+p.diag+'</p></div>'
+   +'<div class="record"><h3>Medications</h3><p>'+(p.id==="P-1042"?"Metformin 850mg BID":"AmLODipine 5mg daily")+' — dispense history available via Surescripts integration.</p></div>'
+   +'<div class="record"><h3>Recent encounter</h3><p>'+(ENCOUNTERS.find(e=>e.patient===p.name)?.note||"No recent encounters.")+'</p></div>'
+   +'<div class="row"><button class="btn sm ghost" onclick="render(\'Patients\')">← Back</button>'
+   +(p.sens?'<button class="btn sm ghost" onclick="breakGlass()">🚨 Break-glass access</button>':'')+'</div></div>';
+}
+
+function vEncounters(){
+  return '<div class="panel"><h2>🩺 Encounters</h2><table><tr><th>ID</th><th>Patient</th><th>Date</th><th>Type</th><th>Note</th></tr>'
+  + ENCOUNTERS.map(e=>'<tr><td>'+e.id+'</td><td>'+e.patient+'</td><td>'+e.date+'</td><td>'+e.type+'</td><td style="max-width:380px">'+e.note+'</td></tr>').join("")+'</table></div>';
+}
+function vRx(){ return '<div class="panel"><h2>💊 Prescriptions</h2><table><tr><th>Patient</th><th>Drug</th><th>Dose</th><th>Status</th></tr>'
+  +'<tr><td>Elena Petrova</td><td>Metformin</td><td>850mg BID</td><td><span class="tag nur">Active</span></td></tr>'
+  +'<tr><td>Marcus Webb</td><td>Amlodipine</td><td>5mg daily</td><td><span class="tag nur">Active</span></td></tr>'
+  +'<tr><td>Priya Nair</td><td>Albuterol</td><td>90mcg PRN</td><td><span class="tag adm">Renewal due</span></td></tr></table>'
+  +'<div class="note">Rx sign requires physician role + step-up (e-RX controlled substance policy).</div></div>'; }
+function vVitals(){ return '<div class="panel"><h2>🌡 Vitals &amp; Meds <span class="tag nur">role: nurse</span></h2><table><tr><th>Patient</th><th>BP</th><th>HR</th><th>SpO₂</th><th>Meds due</th></tr>'
+  +'<tr><td>Elena Petrova</td><td>128/79</td><td>72</td><td>98%</td><td>Metformin 14:00</td></tr>'
+  +'<tr><td>Marcus Webb</td><td>134/85</td><td>68</td><td>97%</td><td>Amlodipine 08:00 ✓</td></tr>'
+  +'<tr><td>Jonah Reyes</td><td>—</td><td>—</td><td>—</td><td>Restricted (Tier-2)</td></tr></table>'
+  +'<div class="note">Tier-2 patients hidden from nursing view (policy pii-tier2, minimum-necessary).</div></div>'; }
+function vTasks(){ return '<div class="panel"><h2>✅ Nursing tasks</h2><div class="record"><h3>14:00 — Med pass, Elena Petrova</h3><p>Metformin 850mg PO. Verify allergies barcode scan.</p></div><div class="record"><h3>15:00 — BP recheck, Marcus Webb</h3><p>Supine + standing, orthostatic protocol.</p></div></div>'; }
+
+function vMyRecord(){
+  return '<div class="panel"><h2>🧬 My health record <span class="tag pat">role: patient</span></h2>'
+  +'<div class="record"><h3>Type 2 Diabetes — care plan</h3><p>HbA1c trend: 8.2 → 7.1 over 12 months. Continue metformin, quarterly labs.</p></div>'
+  +'<div class="record"><h3>Laboratory results (Oct 2026)</h3><p>HbA1c 7.1% · Lipid panel WNL · eGFR 94. Download as PDF (FHIR DocumentReference).</p></div>'
+  +'<div class="record"><h3>Appointments</h3><p>Oct 20, 2026 09:30 — Dr. Amina Rao (Video visit)</p></div>'
+  +'<div class="note">Every view of this record by staff is logged and visible to you under Consents → Access transparency.</div></div>';
+}
+function vConsents(){
+  return '<div class="panel"><h2>🤝 Consents &amp; sharing</h2><table><tr><th>Granted to</th><th>Scope</th><th>Until</th><th>Status</th><th></th></tr>'
+  + state.consents.map((c,i)=>'<tr><td>'+c.to+'</td><td>'+c.scope+'</td><td>'+c.till+'</td><td>'+(c.active?'<span class="tag nur">Active</span>':'<span class="tag adm">Revoked</span>')+'</td><td><span class="lnk" onclick="toggleConsent('+i+')">'+(c.active?'Revoke':'Re-grant')+'</span></td></tr>').join("")
+  +'</table><div class="row" style="margin-top:14px"><button class="btn sm" onclick="addConsent()">+ Grant new consent</button></div>'
+  +'<div class="note">Consent enforcement happens in the PDP — clinicians see only what the patient has consented to share.</div></div>';
+}
+function toggleConsent(i){ state.consents[i].active=!state.consents[i].active; audit(roleLabel(),state.consents[i].active?"CONSENT_GRANT":"CONSENT_REVOKE",state.consents[i].to,"ALLOW","consent-policy"); render("Consents & Sharing"); }
+function addConsent(){ state.consents.push({to:"Dr. Kevin Yu (Cardiology referral)",scope:"Cardiology notes + labs",till:"2027-04-01",active:true}); audit(roleLabel(),"CONSENT_GRANT","Dr. Kevin Yu","ALLOW","consent-policy"); render("Consents & Sharing"); }
+function vAppts(){ return '<div class="panel"><h2>📅 Appointments</h2><div class="record"><h3>Oct 20, 2026 — 09:30 Video visit</h3><p>Dr. Amina Rao · Diabetes follow-up</p></div><div class="record"><h3>Jan 12, 2027 — 08:00 Lab draw</h3><p>Quarterly HbA1c + lipid panel · Main campus, 2nd floor</p></div></div>'; }
+
+function vUsers(){
+  return '<div class="panel"><h2>👤 Users &amp; roles <span class="tag adm">role: admin · JIT</span></h2><table><tr><th>Name</th><th>Role</th><th>Department</th><th>MFA</th><th>Last login</th></tr>'
+  + USERS.map(u=>'<tr><td>'+u.name+'</td><td><span class="tag '+ROLE_DEFS[u.role].tag+'">'+ROLE_DEFS[u.role].label+'</span></td><td>'+u.dept+'</td><td>'+u.mfa+'</td><td>'+u.last+'</td></tr>').join("")
+  +'</table><div class="note">Admin actions here require just-in-time elevation (policy jit-admin, 15-min window) and are fully audited.</div></div>';
+}
+function vPolicies(){
+  return '<div class="panel"><h2>⚖️ Zero-trust policy set (PDP)</h2><table><tr><th>Policy</th><th>Description</th><th>Enforced</th></tr>'
+  + POLICIES.map(p=>'<tr><td><code>'+p.id+'</code></td><td>'+p.desc+'</td><td>'+(p.on?'<span class="tag nur">ON</span>':'<span class="tag adm">OFF</span>')+'</td></tr>').join("")
+  +'</table><div class="note">In production these are OPA/Rego bundles signed and versioned; changes are dual-control.</div></div>';
+}
+function vInteg(){ return '<div class="panel"><h2>🔌 Integrations</h2><div class="record"><h3>FHIR R4 API (SMART on FHIR)</h3><p>Patient, Encounter, Observation, MedicationRequest, Consent, AuditEvent. mTLS + OAuth2 client credentials.</p></div><div class="record"><h3>HIE / TEFCA</h3><p>Query/response brokered through consent-aware PDP proxy.</p></div><div class="record"><h3>Surescripts e-RX</h3><p>Controlled substances require step-up auth + device posture ≥ 85.</p></div></div>'; }
+
+function vAudit(){
+  return '<div class="panel"><h2>🧾 Immutable audit log <span class="tag aud">hash-chained · WORM storage</span></h2><div class="log">'
+  + state.audit.map(e=>'<span class="t">'+e.ts+'</span> [<span class="'+(e.decision.startsWith("DENY")?"d":e.decision.startsWith("ALLOW")?"a":"s")+'">'+e.decision+'</span>] '+e.actor+' → '+e.action+' @ '+e.resource+' · policy='+e.policy+' · chain='+e.chain+'</span>').join("<br>")
+  +'</div><div class="note">Each entry hashes the previous — tamper-evident (WORM/S3 Object-Lock, mirrored to SIEM). Auditors get read-only, metadata-level access.</div></div>';
+}
+function renderAuditIfVisible(){ if(state.nav.includes("Audit")) render(state.nav); }
+function vReviews(){ return '<div class="panel"><h2>🔎 Access reviews</h2><div class="record"><h3>Quarterly user access recertification — Q3 2026</h3><p>214 users · 5 exceptions flagged · due Oct 31.</p></div><div class="record"><h3>Break-glass review — E-9022 (Jonah Reyes)</h3><p>Co-signed by Dr. K. Yu · justified: ED presentation · closed.</p></div></div>'; }
+function vReports(){ return '<div class="panel"><h2>📊 Compliance reports</h2><div class="record"><h3>HIPAA §164.312 technical safeguards</h3><p>Access control ✓ · Audit controls ✓ · Integrity ✓ · Person/entity auth ✓</p></div><div class="record"><h3>42 CFR Part 2 segmentation</h3><p>SUD records segmented, consent-gated, excluded from TEFCA exchange by default.</p></div></div>'; }
+</script>
+</body>
+</html>

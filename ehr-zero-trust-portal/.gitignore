@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Env & secrets — NEVER commit real secrets
+.env
+*.pem
+*.key
+
+# Node / frontend builds (future React version)
+node_modules/
+dist/
+build/
+
+# OS / editor noise
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log
